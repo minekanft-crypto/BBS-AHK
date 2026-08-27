@@ -1,8 +1,7 @@
-# Required image templates
+# Story image templates
 
-Put the BBS UI screenshots/templates in THIS folder.
+Put ONLY these PNG templates in this folder:
 
-Minimum templates currently expected by the engine:
 - new.png
 - new_2.png
 - ok.png
@@ -13,12 +12,9 @@ Minimum templates currently expected by the engine:
 - quest_clear.png
 - close.png
 - back.png
-- sub_2.png
-- sub_3.png
-- sub_4.png
-- sub_5.png
-- sub_6.png
 
-These should be cropped tightly around the relevant UI element and captured at the same game resolution/scaling used while running the script.
+Do NOT add the Sub Story pagination templates (`sub_2.png`, `sub_3.png`, etc.) or templates for other game modes.
 
-The reference project uses image templates for these UI transitions. BBS-AHK intentionally keeps the templates separate from the AHK logic so they can be replaced/calibrated without changing code.
+Templates should be tightly cropped around the UI element and captured at the same BBS resolution/scaling used while running the script.
+
+The current engine uses these names so the code can remain independent from the image files. If a reference template does not match the current BBS client, replace it with a fresh crop from the user's own client using the same filename.
