@@ -11,9 +11,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSET_DIR = os.path.join(BASE_DIR, "assets", "icons")
 WINDOW_TITLE = "Bleach: Brave Souls"
 POLL = 0.35
+BACK_INTERVAL = 40.0
 STOP = False
 
-# Every image is checked continuously; there is no required order.
 WATCH = [
     ("prepare_for_quest.png", 0.85),
     ("start_quest.png", 0.85),
@@ -21,7 +21,6 @@ WATCH = [
     ("skip.png", 0.80),
     ("tap_screen.png", 0.80),
     ("cancel.png", 0.80),
-    ("back.png", 0.80),
     ("skin.png", 0.80),
     ("quest_clear.png", 0.80),
     ("next_quest.png.png", 0.65),
@@ -82,7 +81,9 @@ def click_hit(win, hit, name):
 
 def run():
     log("Continuous detection mode")
+    log("Back is checked once every 40 seconds")
     last_click = {}
+    last_back_check = 0.0
     with mss() as sct:
         while not STOP:
             win = get_window()
@@ -93,6 +94,7 @@ def run():
             if img is None:
                 time.sleep(POLL)
                 continue
+
             now = time.time()
             for name, threshold in WATCH:
                 if now - last_click.get(name, 0) < 0.8:
@@ -101,6 +103,15 @@ def run():
                 if hit and click_hit(win, hit, name):
                     last_click[name] = time.time()
                     time.sleep(0.1)
+
+            # Back is intentionally isolated from the normal 0.35s scan.
+            # It is searched at most once per 40 seconds.
+            if now - last_back_check >= BACK_INTERVAL:
+                last_back_check = now
+                hit = match("back.png", img, 0.80)
+                if hit:
+                    click_hit(win, hit, "back.png")
+
             time.sleep(POLL)
 
 
