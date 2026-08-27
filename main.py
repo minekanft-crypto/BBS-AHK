@@ -37,9 +37,11 @@ def click_point(win,cx,cy,name):
 def click_hit(win,hit,name):
     x,y,w,h,_=hit; return click_point(win,win.left+x+w/2,win.top+y+h/2,name)
 def find_non_clear_number_click(win,img):
-    hit=match("non_clear.png",img,.82)
+    hit=match("non_clear.png",img,.70)
     if not hit:return False
-    tx,ty,tw,th,confidence=hit; return click_point(win,win.left+tx+tw*.50,win.top+ty+th*.61,f"non_clear target ({confidence:.3f})")
+    tx,ty,tw,th,confidence=hit
+    # non_clear.png already contains the red outfit/target area; click near its lower-middle target zone.
+    return click_point(win,win.left+tx+tw*.50,win.top+ty+th*.61,f"non_clear target ({confidence:.3f})")
 def run():
     log("Continuous detection mode")
     last_click={}; last_back_check=time.time(); non_clear_cooldown=0.; quest_clear_cooldown=0.; story_cooldown=0.
@@ -54,14 +56,14 @@ def run():
                 hit=match("quest_clear.png",img,.80)
                 if hit and click_point(win,win.left+win.width*.50,win.top+win.height*.50,"quest_clear trigger"):
                     quest_clear_cooldown=now+1.;normal_clicked=True
-            # new_story.png is continuously monitored independently of normal.png.
+            # new_story.png: leave its detection/click logic untouched.
             if now>=story_cooldown:
                 hit=match("new_story.png",img,.50)
                 if hit:
                     x,y,w,h,_=hit
                     if click_point(win,win.left+x+w*.50,win.top+y+h*.90,"new_story 0%"):
                         story_cooldown=now+1.;normal_clicked=True;time.sleep(.1)
-            # normal.png only guards next_quest; it never blocks new_story.
+            # normal.png only guards next_quest; it never blocks new_story or non_clear.
             normal_hit=match("normal.png",img,.80)
             for name,threshold in WATCH:
                 if now-last_click.get(name,0)<.8:continue
