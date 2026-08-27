@@ -13,7 +13,6 @@ ASSET_DIR = os.path.join(BASE_DIR, "assets", "icons")
 WINDOW_TITLE = "Bleach: Brave Souls"
 POLL = 0.35
 BACK_INTERVAL = 40.0
-FALLBACK_TIMEOUT = 120.0
 STOP = False
 
 WATCH = [
@@ -25,9 +24,6 @@ WATCH = [
     ("cancel.png", 0.80),
     ("skin.png", 0.80),
     ("clear.png", 0.80),
-    ("non_clear.png", 0.80),
-    ("quest_clear.png", 0.80),
-    ("next_quest.png.png", 0.65),
     ("next_quest.png", 0.65),
     ("close.png", 0.80),
 ]
@@ -65,10 +61,7 @@ def match(name, img, threshold):
     return loc[0], loc[1], w, h, value
 
 
-def click_hit(win, hit, name):
-    x, y, w, h, confidence = hit
-    cx = int(win.left + x + w / 2)
-    cy = int(win.top + y + h / 2)
+def click_point(win, cx, cy, name):
     if not (win.left <= cx < win.left + win.width and win.top <= cy < win.top + win.height):
         log(f"Blocked unsafe click: {name}")
         return False
@@ -78,42 +71,77 @@ def click_hit(win, hit, name):
             time.sleep(0.1)
     except Exception:
         pass
-    pyautogui.click(cx, cy)
-    log(f"Clicked {name} ({confidence:.3f})")
+    pyautogui.click(int(cx), int(cy))
+    log(f"Clicked {name} at ({int(cx)}, {int(cy)})")
     return True
 
 
-def read_story_number(img, region=None):
-    # OCR is optional. If pytesseract is installed, use it on the supplied
-    # story-number area. The fallback logic remains safe when OCR is absent.
-    try:
-        import pytesseract
-    except ImportError:
-        return None
-    if img is None:
-        return None
-    crop = img
-    if region:
-        x1, y1, x2, y2 = region
-        crop = img[y1:y2, x1:x2]
-    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-    gray = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-    _, bw = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    text = pytesseract.image_to_string(bw, config="--psm 7 -c tessedit_char_whitelist=0123456789")
-    nums = re.findall(r"\d+", text)
-    return int(nums[0]) if nums else None
+def click_hit(win, hit, name):
+    x, y, w, h, confidence = hit
+    return click_point(win, win.left + x + w / 2, win.top + y + h / 2, name)
+
+
+def find_non_clear_number_click(win, img):
+    """Find the yellow quest marker from non_clear.png and click the number below it.
+
+    The template is only used to locate the correct quest block. Inside that block,
+    yellow pixels identify the arrow/hexagon graphic. The compact yellow component
+    (the hexagon) is used as the anchor; the click is deliberately below it, where
+    the story number sits. No story number is hard-coded.
+    """
+    hit = match("non_clear.png", img, 0.72)
+    if not hit:
+        return False
+
+    tx, ty, tw, th, confidence = hit
+    crop = img[ty:ty + th, tx:tx + tw]
+    if crop.size == 0:
+        return False
+
+    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+    # Broad BBS yellow range; arrows and the yellow hexagon are both captured.
+    mask = cv2.inRange(hsv, np.array([15, 80, 100], dtype=np.uint8), np.array([45, 255, 255], dtype=np.uint8))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    candidates = []
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        area = cv2.contourArea(contour)
+        if area < 20 or w < 6 or h < 6:
+            continue
+        # Prefer compact, roughly polygon-sized yellow regions over long arrows.
+        ratio = w / max(h, 1)
+        compact = min(ratio, 1.0 / ratio) if ratio else 0
+        if 0.55 <= ratio <= 1.8 and area >= 80 and compact >= 0.55:
+            candidates.append((area, x, y, w, h))
+
+    if not candidates:
+        return False
+
+    # The hexagon is normally the largest compact yellow component in the block.
+    _, x, y, w, h = max(candidates, key=lambda item: item[0])
+    hex_cx = x + w / 2
+    hex_bottom = y + h
+
+    # Number is directly underneath the hexagon. Keep the x aligned with the marker.
+    click_x = tx + hex_cx
+    click_y = ty + hex_bottom + max(4, int(h * 0.55))
+
+    # Stay inside the matched block; this prevents clicking elsewhere if the asset
+    # is unexpectedly cropped.
+    if not (0 <= click_x <= img.shape[1] and 0 <= click_y <= img.shape[0]):
+        return False
+    return click_point(win, win.left + click_x, win.top + click_y, f"non_clear number ({confidence:.3f})")
 
 
 def run():
     log("Continuous detection mode")
     log("Back check: every 40s; normal clicks reset it")
-    log("Clear/non-clear assets enabled")
+    log("Non-clear quest: yellow marker -> click number below hexagon")
     last_click = {}
     last_back_check = 0.0
-    last_prepare_click = time.time()
-    last_clear_seen = None
-    last_story_number = None
-    fallback_deadline = None
+    non_clear_cooldown = 0.0
 
     with mss() as sct:
         while not STOP:
@@ -129,27 +157,22 @@ def run():
             now = time.time()
             normal_clicked = False
 
-            # Always scan every normal asset. No fixed order.
+            # Every normal asset is watched continuously; there is no fixed flow order.
             for name, threshold in WATCH:
                 if now - last_click.get(name, 0) < 0.8:
                     continue
                 hit = match(name, img, threshold)
                 if hit and click_hit(win, hit, name):
-                    last_click[name] = time.time()
+                    last_click[name] = now
                     normal_clicked = True
-                    if name == "prepare_for_quest.png":
-                        last_prepare_click = time.time()
-                        fallback_deadline = None
-                    if name == "clear.png":
-                        last_clear_seen = now
                     time.sleep(0.1)
 
-            # If CLEAR was seen and Prepare has not happened for 2 minutes,
-            # enable the future Story-number fallback. The actual number
-            # selection will use the stored clear number once the UI region
-            # is configured for OCR.
-            if last_clear_seen is not None and now - last_clear_seen >= FALLBACK_TIMEOUT and now - last_prepare_click >= FALLBACK_TIMEOUT:
-                fallback_deadline = now
+            # Non-clear is special: locate its yellow arrows/hexagon and click only
+            # the story number underneath the yellow hexagon.
+            if now >= non_clear_cooldown:
+                if find_non_clear_number_click(win, img):
+                    non_clear_cooldown = now + 3.0
+                    normal_clicked = True
 
             if normal_clicked:
                 last_back_check = now
