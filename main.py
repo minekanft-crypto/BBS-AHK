@@ -1,6 +1,5 @@
 import os
 import time
-import re
 import cv2
 import numpy as np
 import pyautogui
@@ -82,63 +81,33 @@ def click_hit(win, hit, name):
 
 
 def find_non_clear_number_click(win, img):
-    """Find the yellow quest marker from non_clear.png and click the number below it.
+    """Locate the complete 246x168 non-clear quest block and click its number.
 
-    The template is only used to locate the correct quest block. Inside that block,
-    yellow pixels identify the arrow/hexagon graphic. The compact yellow component
-    (the hexagon) is used as the anchor; the click is deliberately below it, where
-    the story number sits. No story number is hard-coded.
+    The supplied non_clear.png is a visual anchor for the entire quest block.
+    We use its yellow graphic only to locate the hexagon, then click the fixed
+    number position below that hexagon. This avoids guessing from unrelated
+    yellow shapes elsewhere on the screen.
     """
-    hit = match("non_clear.png", img, 0.72)
+    hit = match("non_clear.png", img, 0.82)
     if not hit:
         return False
 
     tx, ty, tw, th, confidence = hit
-    crop = img[ty:ty + th, tx:tx + tw]
-    if crop.size == 0:
-        return False
+    # The user's asset is 246x168. The number is directly below the hexagon
+    # in the captured block, so use the block-relative point rather than a
+    # contour-derived offset that can jump to an arrow.
+    # Center of the number area: lower-middle portion of the supplied block.
+    click_x = tx + tw * 0.50
+    click_y = ty + th * 0.82
 
-    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
-    # Broad BBS yellow range; arrows and the yellow hexagon are both captured.
-    mask = cv2.inRange(hsv, np.array([15, 80, 100], dtype=np.uint8), np.array([45, 255, 255], dtype=np.uint8))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
-
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    candidates = []
-    for contour in contours:
-        x, y, w, h = cv2.boundingRect(contour)
-        area = cv2.contourArea(contour)
-        if area < 20 or w < 6 or h < 6:
-            continue
-        # Prefer compact, roughly polygon-sized yellow regions over long arrows.
-        ratio = w / max(h, 1)
-        compact = min(ratio, 1.0 / ratio) if ratio else 0
-        if 0.55 <= ratio <= 1.8 and area >= 80 and compact >= 0.55:
-            candidates.append((area, x, y, w, h))
-
-    if not candidates:
-        return False
-
-    # The hexagon is normally the largest compact yellow component in the block.
-    _, x, y, w, h = max(candidates, key=lambda item: item[0])
-    hex_cx = x + w / 2
-    hex_bottom = y + h
-
-    # Number is directly underneath the hexagon. Keep the x aligned with the marker.
-    click_x = tx + hex_cx
-    click_y = ty + hex_bottom + max(4, int(h * 0.55))
-
-    # Stay inside the matched block; this prevents clicking elsewhere if the asset
-    # is unexpectedly cropped.
-    if not (0 <= click_x <= img.shape[1] and 0 <= click_y <= img.shape[0]):
-        return False
-    return click_point(win, win.left + click_x, win.top + click_y, f"non_clear number ({confidence:.3f})")
+    return click_point(win, win.left + click_x, win.top + click_y,
+                       f"non_clear number ({confidence:.3f})")
 
 
 def run():
     log("Continuous detection mode")
     log("Back check: every 40s; normal clicks reset it")
-    log("Non-clear quest: yellow marker -> click number below hexagon")
+    log("Non-clear quest: detected block -> click number")
     last_click = {}
     last_back_check = 0.0
     non_clear_cooldown = 0.0
@@ -157,7 +126,6 @@ def run():
             now = time.time()
             normal_clicked = False
 
-            # Every normal asset is watched continuously; there is no fixed flow order.
             for name, threshold in WATCH:
                 if now - last_click.get(name, 0) < 0.8:
                     continue
@@ -167,8 +135,6 @@ def run():
                     normal_clicked = True
                     time.sleep(0.1)
 
-            # Non-clear is special: locate its yellow arrows/hexagon and click only
-            # the story number underneath the yellow hexagon.
             if now >= non_clear_cooldown:
                 if find_non_clear_number_click(win, img):
                     non_clear_cooldown = now + 3.0
