@@ -1,5 +1,6 @@
 import os
 import time
+import re
 import cv2
 import numpy as np
 import pyautogui
@@ -12,7 +13,7 @@ ASSET_DIR = os.path.join(BASE_DIR, "assets", "icons")
 WINDOW_TITLE = "Bleach: Brave Souls"
 POLL = 0.35
 BACK_INTERVAL = 40.0
-BACK_RESET_AFTER_CLICK = 20.0
+FALLBACK_TIMEOUT = 120.0
 STOP = False
 
 WATCH = [
@@ -23,6 +24,8 @@ WATCH = [
     ("tap_screen.png", 0.80),
     ("cancel.png", 0.80),
     ("skin.png", 0.80),
+    ("clear.png", 0.80),
+    ("non_clear.png", 0.80),
     ("quest_clear.png", 0.80),
     ("next_quest.png.png", 0.65),
     ("next_quest.png", 0.65),
@@ -80,11 +83,38 @@ def click_hit(win, hit, name):
     return True
 
 
+def read_story_number(img, region=None):
+    # OCR is optional. If pytesseract is installed, use it on the supplied
+    # story-number area. The fallback logic remains safe when OCR is absent.
+    try:
+        import pytesseract
+    except ImportError:
+        return None
+    if img is None:
+        return None
+    crop = img
+    if region:
+        x1, y1, x2, y2 = region
+        crop = img[y1:y2, x1:x2]
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    gray = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+    _, bw = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    text = pytesseract.image_to_string(bw, config="--psm 7 -c tessedit_char_whitelist=0123456789")
+    nums = re.findall(r"\d+", text)
+    return int(nums[0]) if nums else None
+
+
 def run():
     log("Continuous detection mode")
-    log("Back check: every 40s, reset by any normal button click within 20s")
+    log("Back check: every 40s; normal clicks reset it")
+    log("Clear/non-clear assets enabled")
     last_click = {}
     last_back_check = 0.0
+    last_prepare_click = time.time()
+    last_clear_seen = None
+    last_story_number = None
+    fallback_deadline = None
+
     with mss() as sct:
         while not STOP:
             win = get_window()
@@ -98,6 +128,8 @@ def run():
 
             now = time.time()
             normal_clicked = False
+
+            # Always scan every normal asset. No fixed order.
             for name, threshold in WATCH:
                 if now - last_click.get(name, 0) < 0.8:
                     continue
@@ -105,10 +137,20 @@ def run():
                 if hit and click_hit(win, hit, name):
                     last_click[name] = time.time()
                     normal_clicked = True
+                    if name == "prepare_for_quest.png":
+                        last_prepare_click = time.time()
+                        fallback_deadline = None
+                    if name == "clear.png":
+                        last_clear_seen = now
                     time.sleep(0.1)
 
-            # Any normal button click means the UI is still progressing, so
-            # postpone the low-frequency Back safety check for another 40s.
+            # If CLEAR was seen and Prepare has not happened for 2 minutes,
+            # enable the future Story-number fallback. The actual number
+            # selection will use the stored clear number once the UI region
+            # is configured for OCR.
+            if last_clear_seen is not None and now - last_clear_seen >= FALLBACK_TIMEOUT and now - last_prepare_click >= FALLBACK_TIMEOUT:
+                fallback_deadline = now
+
             if normal_clicked:
                 last_back_check = now
             elif now - last_back_check >= BACK_INTERVAL:
