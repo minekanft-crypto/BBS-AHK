@@ -1,18 +1,18 @@
 # BBS-AHK
 
-AutoHotkey v2 automation focused ONLY on Bleach Brave Souls **Story** and **Sub Story**.
+AutoHotkey v2 automation focused ONLY on Bleach Brave Souls **Story**.
 
-## Current scope
+## Scope
 
 Included:
-- Story flow (menu/quest engine scaffold)
-- Sub Story flow
+- Story navigation and quest flow
 - ImageSearch-based UI detection
 - Shared single-player quest state machine
 - Debug logging
 - Configurable timing and image-search tolerance
 
 Excluded:
+- Sub Story
 - Brave Battles
 - Co-Op
 - Epic Raids
@@ -31,22 +31,19 @@ Excluded:
 ## Controls
 
 - `F6` — run Story
-- `F7` — run Sub Story
 - `F8` — test/diagnostic
 - `F9` — stop/exit
 
 ## Assets
 
-The image engine expects these templates in `assets/icons/`:
+Only Story-related templates should be placed in `assets/icons/`. The exact final list will be documented after the Story flow is calibrated against the BBS client.
 
-`new.png`, `new_2.png`, `ok.png`, `skip.png`, `prepare_for_quest.png`, `start_quest.png`, `pause.png`, `quest_clear.png`, `close.png`, `back.png`, `sub_2.png`, `sub_3.png`, `sub_4.png`, `sub_5.png`, `sub_6.png`.
-
-The templates must match the BBS client resolution/scaling used at runtime. Start with the supplied/reference templates when compatible; otherwise capture fresh crops from the user's own client.
+Templates must match the BBS client resolution/scaling used at runtime. Reference templates can be used when compatible; otherwise capture fresh crops from the user's own client.
 
 ## Reference
 
-The implementation is inspired by and partially adapted from `xJohnnyrl/bbs-auto-farmer`, whose repository uses OpenCV template matching and a state-machine approach for Sub Stories. See `LICENSE-REFERENCE.txt` for attribution/license information.
+The implementation is inspired by and partially adapted from `xJohnnyrl/bbs-auto-farmer`, whose repository uses image/template detection and state-machine automation. The original MIT license/attribution is retained where applicable.
 
 ## Status
 
-The core AHK architecture is in place. The remaining practical step is supplying/calibrating the PNG templates and then testing the exact Story menu transitions on the user's BBS client.
+The project is now **Story-only**. Sub Story support has been removed to keep the first version focused and reliable. The next practical step is completing and calibrating the Story templates and transitions.
