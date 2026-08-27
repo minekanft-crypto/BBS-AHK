@@ -54,14 +54,19 @@ def run():
                 hit=match("quest_clear.png",img,.80)
                 if hit and click_point(win,win.left+win.width*.50,win.top+win.height*.50,"quest_clear trigger"):
                     quest_clear_cooldown=now+1.;normal_clicked=True
-            # NORMAL has priority over next_quest: if normal.png is visible, next_quest is ignored.
             normal_hit=match("normal.png",img,.80)
             for name,threshold in WATCH:
-                if name=="next_quest.png" and normal_hit:
-                    continue
+                if name=="next_quest.png" and normal_hit:continue
                 if now-last_click.get(name,0)<.8:continue
                 hit=match(name,img,threshold)
-                if hit and click_hit(win,hit,name):last_click[name]=now;normal_clicked=True;time.sleep(.1)
+                if hit:
+                    if name=="normal_story.png":
+                        # The asset contains NORMAL above the 0% entry; click the lower 0% area.
+                        x,y,w,h,_=hit
+                        if click_point(win,win.left+x+w*.50,win.top+y+h*.78,"normal_story 0%"):
+                            last_click[name]=now;normal_clicked=True;time.sleep(.1)
+                    elif click_hit(win,hit,name):
+                        last_click[name]=now;normal_clicked=True;time.sleep(.1)
             if now>=non_clear_cooldown and find_non_clear_number_click(win,img):
                 non_clear_cooldown=now+.8;normal_clicked=True
             if normal_clicked:last_back_check=now
