@@ -1,49 +1,56 @@
 #Requires AutoHotkey v2.0
 
-; Story-only quest flow. Starts directly from the Story quest detail screen.
+; Story quest flow for a 1600x900 BBS client.
+; Start from the Story quest screen where "Prepare for Quest" is visible.
 
 RunQuestFlow() {
-    Log("Quest flow: starting")
+    Log("Quest flow: starting from Prepare for Quest")
     deadline := A_TickCount + QUEST_TIMEOUT_MS
-    nextQuestGraceDeadline := 0
 
     while A_TickCount < deadline {
-        if ClickTemplate(Asset("new_2"))
+        ; 1) Open the party/setup screen.
+        if ClickTemplate(Asset("prepare_for_quest"), 60)
             continue
-        if ClickTemplate(Asset("ok"))
-            continue
-        if ClickTemplate(Asset("skip"))
-            continue
-
-        ; Prepare for Quest is the primary entry point.
-        if ClickTemplate(Asset("prepare_for_quest"))
-            continue
-        if ClickPrepareForQuestFallback()
+        if ClickPrepareForQuest1600()
             continue
 
-        if ClickTemplate(Asset("start_quest"))
+        ; 2) Start the quest from the party screen.
+        if ClickTemplate(Asset("start_quest"), 60)
             continue
-        if FindTemplate(Asset("pause"), &x, &y) {
+
+        ; 3) Confirm the start dialog if present.
+        if ClickTemplate(Asset("ok"), 60)
+            continue
+
+        ; 4) Skip dialogs/cutscenes when they appear.
+        if ClickTemplate(Asset("skip"), 60)
+            continue
+
+        ; 5) Gameplay: wait until the quest finishes.
+        if FindTemplate(Asset("pause"), &x, &y, 60) {
             Log("Quest flow: gameplay detected")
-            Sleep 1500
+            Sleep 2000
             continue
         }
-        if ClickTemplate(Asset("quest_clear")) {
+
+        ; 6) Quest result screen.
+        if ClickTemplate(Asset("quest_clear"), 60) {
             Log("Quest flow: quest clear")
-            nextQuestGraceDeadline := A_TickCount + 5000
+            Sleep 1000
             continue
         }
-        if ClickTemplate(ASSET_DIR "\next_quest.png.png") {
+
+        ; 7) Next quest / close result screen.
+        if ClickTemplate(ASSET_DIR "\next_quest.png.png", 60) {
             Log("Quest flow: next quest")
-            nextQuestGraceDeadline := 0
             continue
         }
-        if (nextQuestGraceDeadline = 0 || A_TickCount >= nextQuestGraceDeadline) {
-            if ClickTemplate(Asset("close")) {
-                Log("Quest flow: closed")
-                return true
-            }
+
+        if ClickTemplate(Asset("close"), 60) {
+            Log("Quest flow: closed")
+            return true
         }
+
         Sleep POLL_DELAY_MS
     }
 
@@ -51,7 +58,10 @@ RunQuestFlow() {
     return false
 }
 
-ClickPrepareForQuestFallback() {
+; At exactly 1600x900, use the known Prepare for Quest button position as a
+; hard fallback. This avoids the template mismatch that was causing the bot
+; to report that no Story quest was available.
+ClickPrepareForQuest1600() {
     if !WinExist(BBS_WINDOW_TITLE)
         return false
 
@@ -59,26 +69,14 @@ ClickPrepareForQuestFallback() {
     if (ww <= 0 || wh <= 0)
         return false
 
+    ; Relative position used by the 1600x900 client layout.
     cx := wx + Round(ww * 0.688)
     cy := wy + Round(wh * 0.908)
 
-    try {
-        color := PixelGetColor(cx, cy, "RGB")
-        r := (color >> 16) & 0xFF
-        g := (color >> 8) & 0xFF
-        b := color & 0xFF
-
-        if (b < 100 || b < r * 1.15 || b < g * 1.05)
-            return false
-
-        WinActivate BBS_WINDOW_TITLE
-        Sleep ACTION_DELAY_MS
-        Click cx, cy
-        Sleep CLICK_COOLDOWN_MS
-        Log("Quest flow: Prepare for Quest (scaled fallback)")
-        return true
-    } catch Error as err {
-        Log("Prepare fallback error: " err.Message)
-        return false
-    }
+    WinActivate BBS_WINDOW_TITLE
+    Sleep ACTION_DELAY_MS
+    Click cx, cy
+    Sleep CLICK_COOLDOWN_MS
+    Log("Quest flow: clicked Prepare for Quest fallback")
+    return true
 }
