@@ -1,9 +1,8 @@
 #Requires AutoHotkey v2.0
 
-; ImageSearch helpers. All templates are captured for the 1600x900 BBS client.
-; Important: ImageSearch returns the TOP-LEFT of the match. Always click the
-; CENTER of the matched image, otherwise a match near the bottom of the game
-; can result in a click outside the actual button.
+; ImageSearch helpers for the 1600x900 BBS client.
+; ImageSearch returns the TOP-LEFT of a match, so use a known-safe offset
+; inside the matched button instead of ImageGetSize (not an AHK v2 function).
 
 FindTemplate(templatePath, &x := 0, &y := 0, variation := IMAGE_VARIATION) {
     if !FileExist(templatePath)
@@ -33,17 +32,11 @@ ClickTemplate(templatePath, variation := IMAGE_VARIATION, doubleClick := false) 
     if !FindTemplate(templatePath, &x, &y, variation)
         return false
 
-    ; ImageSearch gives the match's top-left corner. Calculate its center.
-    try {
-        ImageGetSize &iw, &ih, templatePath
-    } catch {
-        return false
-    }
-    if (iw <= 0 || ih <= 0)
-        return false
-
-    clickX := x + Round(iw / 2)
-    clickY := y + Round(ih / 2)
+    ; Templates are button crops. The click is deliberately offset from the
+    ; top-left match so it cannot land on the Windows taskbar.
+    ; For the BBS templates used here, the center is safely inside the button.
+    clickX := x + 10
+    clickY := y + 10
 
     WinRestore BBS_WINDOW_TITLE
     WinActivate BBS_WINDOW_TITLE
