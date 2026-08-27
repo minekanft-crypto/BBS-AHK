@@ -1,24 +1,24 @@
 #Requires AutoHotkey v2.0
 
-; ImageSearch helpers for the 1600x900 BBS client.
-; ImageSearch returns the TOP-LEFT of the match. We calculate the real
-; template size with GDI/GetObject and click its CENTER.
+; BBS runs at 1600x900 inside a 2560x1440 desktop.
+; Search and click in the GAME WINDOW coordinate space, never screen space.
 
 FindTemplate(templatePath, &x := 0, &y := 0, variation := IMAGE_VARIATION) {
-    if !FileExist(templatePath)
-        return false
-    if !WinExist(BBS_WINDOW_TITLE)
+    if !FileExist(templatePath) || !WinExist(BBS_WINDOW_TITLE)
         return false
 
     WinGetPos &wx, &wy, &ww, &wh, BBS_WINDOW_TITLE
-    if (ww <= 0 || wh <= 0)
+    if (ww != 1600 || wh != 900)
         return false
 
     CoordMode "Pixel", "Screen"
     try {
         if ImageSearch(&fx, &fy, wx, wy, wx + ww - 1, wy + wh - 1, "*" variation " " templatePath) {
-            x := fx
-            y := fy
+            ; Convert screen coordinates returned by ImageSearch to game-local
+            ; coordinates. This prevents the desktop/taskbar from being used
+            ; as the click target when the game is not at (0,0).
+            x := fx - wx
+            y := fy - wy
             return true
         }
     } catch Error as err {
@@ -27,47 +27,20 @@ FindTemplate(templatePath, &x := 0, &y := 0, variation := IMAGE_VARIATION) {
     return false
 }
 
-GetImageSize(path, &width := 0, &height := 0) {
-    width := 0
-    height := 0
-    hBitmap := 0
-    try {
-        hBitmap := LoadPicture(path, "GDI", , )
-        if !hBitmap
-            return false
-
-        ; BITMAP structure: bmType(0), bmWidth(4), bmHeight(8), ...
-        bm := Buffer(32, 0)
-        if DllCall("GetObject", "Ptr", hBitmap, "Int", bm.Size, "Ptr", bm.Ptr) = 0
-            return false
-
-        width := NumGet(bm, 4, "Int")
-        height := NumGet(bm, 8, "Int")
-        return width > 0 && height > 0
-    } catch Error as err {
-        Log("GetImageSize error: " err.Message)
-        return false
-    } finally {
-        if hBitmap
-            DllCall("DeleteObject", "Ptr", hBitmap)
-    }
-}
-
 ClickTemplate(templatePath, variation := IMAGE_VARIATION, doubleClick := false) {
     x := 0, y := 0
     if !FindTemplate(templatePath, &x, &y, variation)
         return false
 
-    iw := 0
-    ih := 0
-    if !GetImageSize(templatePath, &iw, &ih)
+    WinGetPos &wx, &wy, &ww, &wh, BBS_WINDOW_TITLE
+    ; All clicks are reconstructed from the BBS window origin + the matched
+    ; point, so they can never spill onto the Windows taskbar.
+    clickX := wx + x + 10
+    clickY := wy + y + 10
+
+    if (clickX < wx || clickX >= wx + ww || clickY < wy || clickY >= wy + wh)
         return false
 
-    ; ImageSearch gives the TOP-LEFT; click the CENTER of the actual template.
-    clickX := x + Floor(iw / 2)
-    clickY := y + Floor(ih / 2)
-
-    WinRestore BBS_WINDOW_TITLE
     WinActivate BBS_WINDOW_TITLE
     if !WinWaitActive(BBS_WINDOW_TITLE, , 1)
         return false
