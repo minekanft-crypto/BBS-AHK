@@ -12,7 +12,7 @@ WINDOW_TITLE="Bleach: Brave Souls"
 POLL=.35
 BACK_INTERVAL=40.0
 STOP=False
-WATCH=[("prepare_for_quest.png",.85),("start_quest.png",.85),("ok.png",.80),("skip.png",.80),("tap_screen.png",.80),("cancel.png",.80),("skin.png",.80),("clear.png",.80),("next_quest.png",.65),("close.png",.80)]
+WATCH=[("prepare_for_quest.png",.85),("start_quest.png",.85),("ok.png",.80),("skip.png",.80),("tap_screen.png",.80),("cancel.png",.80),("skin.png",.80),("next_quest.png",.65),("close.png",.80)]
 def log(msg): print(f"[BBS] {msg}",flush=True)
 def get_window():
     wins=[w for w in gw.getWindowsWithTitle(WINDOW_TITLE) if w.width>0 and w.height>0]; return max(wins,key=lambda w:w.width*w.height) if wins else None
@@ -42,7 +42,7 @@ def find_non_clear_number_click(win,img):
     tx,ty,tw,th,confidence=hit; return click_point(win,win.left+tx+tw*.50,win.top+ty+th*.61,f"non_clear target ({confidence:.3f})")
 def run():
     log("Continuous detection mode")
-    last_click={}; last_back_check=time.time(); non_clear_cooldown=0.
+    last_click={}; last_back_check=time.time(); non_clear_cooldown=0.; quest_clear_cooldown=0.
     with mss() as sct:
         while not STOP:
             win=get_window()
@@ -50,14 +50,13 @@ def run():
             img=screenshot(win,sct)
             if img is None:time.sleep(POLL);continue
             now=time.time();normal_clicked=False
-            # Clear is an action trigger: whenever detected, click a safe point inside the game.
-            clear_hit=match("clear.png",img,.80)
-            if clear_hit and now-last_click.get("__clear__",0)>=.8:
-                cx=win.left+win.width*.50; cy=win.top+win.height*.50
-                if click_point(win,cx,cy,"clear trigger"):
-                    last_click["__clear__"]=now; normal_clicked=True
+            # quest_clear.png is the only clear trigger; click inside the game when detected.
+            if now>=quest_clear_cooldown:
+                hit=match("quest_clear.png",img,.80)
+                if hit:
+                    if click_point(win,win.left+win.width*.50,win.top+win.height*.50,"quest_clear trigger"):
+                        quest_clear_cooldown=now+1.0;normal_clicked=True
             for name,threshold in WATCH:
-                if name=="clear.png": continue
                 if now-last_click.get(name,0)<.8:continue
                 hit=match(name,img,threshold)
                 if hit and click_hit(win,hit,name):last_click[name]=now;normal_clicked=True;time.sleep(.1)
