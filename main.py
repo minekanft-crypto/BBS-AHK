@@ -12,6 +12,7 @@ ASSET_DIR = os.path.join(BASE_DIR, "assets", "icons")
 WINDOW_TITLE = "Bleach: Brave Souls"
 POLL = 0.35
 BACK_INTERVAL = 40.0
+BACK_RESET_AFTER_CLICK = 20.0
 STOP = False
 
 WATCH = [
@@ -81,7 +82,7 @@ def click_hit(win, hit, name):
 
 def run():
     log("Continuous detection mode")
-    log("Back is checked once every 40 seconds")
+    log("Back check: every 40s, reset by any normal button click within 20s")
     last_click = {}
     last_back_check = 0.0
     with mss() as sct:
@@ -96,17 +97,21 @@ def run():
                 continue
 
             now = time.time()
+            normal_clicked = False
             for name, threshold in WATCH:
                 if now - last_click.get(name, 0) < 0.8:
                     continue
                 hit = match(name, img, threshold)
                 if hit and click_hit(win, hit, name):
                     last_click[name] = time.time()
+                    normal_clicked = True
                     time.sleep(0.1)
 
-            # Back is intentionally isolated from the normal 0.35s scan.
-            # It is searched at most once per 40 seconds.
-            if now - last_back_check >= BACK_INTERVAL:
+            # Any normal button click means the UI is still progressing, so
+            # postpone the low-frequency Back safety check for another 40s.
+            if normal_clicked:
+                last_back_check = now
+            elif now - last_back_check >= BACK_INTERVAL:
                 last_back_check = now
                 hit = match("back.png", img, 0.80)
                 if hit:
