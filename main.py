@@ -50,11 +50,17 @@ def run():
             img=screenshot(win,sct)
             if img is None:time.sleep(POLL);continue
             now=time.time();normal_clicked=False
+            # Clear is an action trigger: whenever detected, click a safe point inside the game.
+            clear_hit=match("clear.png",img,.80)
+            if clear_hit and now-last_click.get("__clear__",0)>=.8:
+                cx=win.left+win.width*.50; cy=win.top+win.height*.50
+                if click_point(win,cx,cy,"clear trigger"):
+                    last_click["__clear__"]=now; normal_clicked=True
             for name,threshold in WATCH:
+                if name=="clear.png": continue
                 if now-last_click.get(name,0)<.8:continue
                 hit=match(name,img,threshold)
                 if hit and click_hit(win,hit,name):last_click[name]=now;normal_clicked=True;time.sleep(.1)
-            # non_clear is checked on every scan, with only a short post-click guard
             if now>=non_clear_cooldown and find_non_clear_number_click(win,img):
                 non_clear_cooldown=now+.8;normal_clicked=True
             if normal_clicked:last_back_check=now
