@@ -1,24 +1,22 @@
 #Requires AutoHotkey v2.0
 
-; BBS runs at 1600x900 inside a 2560x1440 desktop.
-; Search and click in the GAME WINDOW coordinate space, never screen space.
+; BBS is rendered at 1600x900 while the desktop is 2560x1440.
+; ImageSearch works in SCREEN coordinates. We therefore search only inside
+; the actual BBS window and click the matched image relative to that window.
 
 FindTemplate(templatePath, &x := 0, &y := 0, variation := IMAGE_VARIATION) {
     if !FileExist(templatePath) || !WinExist(BBS_WINDOW_TITLE)
         return false
 
     WinGetPos &wx, &wy, &ww, &wh, BBS_WINDOW_TITLE
-    if (ww != 1600 || wh != 900)
+    if (ww <= 0 || wh <= 0)
         return false
 
     CoordMode "Pixel", "Screen"
     try {
         if ImageSearch(&fx, &fy, wx, wy, wx + ww - 1, wy + wh - 1, "*" variation " " templatePath) {
-            ; Convert screen coordinates returned by ImageSearch to game-local
-            ; coordinates. This prevents the desktop/taskbar from being used
-            ; as the click target when the game is not at (0,0).
-            x := fx - wx
-            y := fy - wy
+            x := fx
+            y := fy
             return true
         }
     } catch Error as err {
@@ -33,11 +31,13 @@ ClickTemplate(templatePath, variation := IMAGE_VARIATION, doubleClick := false) 
         return false
 
     WinGetPos &wx, &wy, &ww, &wh, BBS_WINDOW_TITLE
-    ; All clicks are reconstructed from the BBS window origin + the matched
-    ; point, so they can never spill onto the Windows taskbar.
-    clickX := wx + x + 10
-    clickY := wy + y + 10
 
+    ; ImageSearch already returned SCREEN coordinates. Do NOT add the window
+    ; origin a second time. Click slightly inside the matched image.
+    clickX := x + 10
+    clickY := y + 10
+
+    ; Hard safety boundary: never click outside the BBS client window.
     if (clickX < wx || clickX >= wx + ww || clickY < wy || clickY >= wy + wh)
         return false
 
