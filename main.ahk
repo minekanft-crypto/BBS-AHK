@@ -5,12 +5,11 @@
 #Include modules\image.ahk
 #Include modules\quest.ahk
 #Include modules\story.ahk
-#Include modules\substory.ahk
 
 Persistent
 
 F8:: {
-    Log("BBS-AHK ready")
+    Log("BBS-AHK ready - Story only")
     SetTimer(() => ToolTip(), -1500)
 }
 
@@ -18,12 +17,6 @@ F8:: {
 F6:: {
     Log("Mode: Story")
     RunStory()
-}
-
-; F7 = Sub Story
-F7:: {
-    Log("Mode: Sub Story")
-    RunSubStory()
 }
 
 ; F9 = stop/exit
