@@ -1,8 +1,8 @@
 #Requires AutoHotkey v2.0
 
 ; ImageSearch helpers for the 1600x900 BBS client.
-; ImageSearch returns the TOP-LEFT of a match, so use a known-safe offset
-; inside the matched button instead of ImageGetSize (not an AHK v2 function).
+; ImageSearch returns the TOP-LEFT of the match. We calculate the real
+; template size with GDI/GetObject and click its CENTER.
 
 FindTemplate(templatePath, &x := 0, &y := 0, variation := IMAGE_VARIATION) {
     if !FileExist(templatePath)
@@ -27,16 +27,45 @@ FindTemplate(templatePath, &x := 0, &y := 0, variation := IMAGE_VARIATION) {
     return false
 }
 
+GetImageSize(path, &width := 0, &height := 0) {
+    width := 0
+    height := 0
+    hBitmap := 0
+    try {
+        hBitmap := LoadPicture(path, "GDI", , )
+        if !hBitmap
+            return false
+
+        ; BITMAP structure: bmType(0), bmWidth(4), bmHeight(8), ...
+        bm := Buffer(32, 0)
+        if DllCall("GetObject", "Ptr", hBitmap, "Int", bm.Size, "Ptr", bm.Ptr) = 0
+            return false
+
+        width := NumGet(bm, 4, "Int")
+        height := NumGet(bm, 8, "Int")
+        return width > 0 && height > 0
+    } catch Error as err {
+        Log("GetImageSize error: " err.Message)
+        return false
+    } finally {
+        if hBitmap
+            DllCall("DeleteObject", "Ptr", hBitmap)
+    }
+}
+
 ClickTemplate(templatePath, variation := IMAGE_VARIATION, doubleClick := false) {
     x := 0, y := 0
     if !FindTemplate(templatePath, &x, &y, variation)
         return false
 
-    ; Templates are button crops. The click is deliberately offset from the
-    ; top-left match so it cannot land on the Windows taskbar.
-    ; For the BBS templates used here, the center is safely inside the button.
-    clickX := x + 10
-    clickY := y + 10
+    iw := 0
+    ih := 0
+    if !GetImageSize(templatePath, &iw, &ih)
+        return false
+
+    ; ImageSearch gives the TOP-LEFT; click the CENTER of the actual template.
+    clickX := x + Floor(iw / 2)
+    clickY := y + Floor(ih / 2)
 
     WinRestore BBS_WINDOW_TITLE
     WinActivate BBS_WINDOW_TITLE
