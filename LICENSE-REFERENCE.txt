@@ -1,0 +1,8 @@
+This project incorporates ideas and/or code adapted from xJohnnyrl/bbs-auto-farmer.
+
+The referenced project is distributed under the MIT License. The original repository's LICENSE contains the following copyright notices:
+Copyright (c) 2024 xJohnnyrl
+Copyright (c) 2025 Jonathan Romero
+
+See the original repository for the complete license text:
+https://github.com/xJohnnyrl/bbs-auto-farmer/blob/main/LICENSE
