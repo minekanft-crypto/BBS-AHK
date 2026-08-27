@@ -1,7 +1,6 @@
 #Requires AutoHotkey v2.0
 
-; Common single-player Story quest state machine.
-; This module intentionally contains no other BBS game modes.
+; Story-only quest flow. Starts directly from the Story quest detail screen.
 
 RunQuestFlow() {
     Log("Quest flow: starting")
@@ -16,8 +15,7 @@ RunQuestFlow() {
         if ClickTemplate(Asset("skip"))
             continue
 
-        ; Try the normal template first, then the scaled fallback for the
-        ; 2K desktop/window layout shown by the user.
+        ; Prepare for Quest is the primary entry point.
         if ClickTemplate(Asset("prepare_for_quest"))
             continue
         if ClickPrepareForQuestFallback()
@@ -35,7 +33,7 @@ RunQuestFlow() {
             nextQuestGraceDeadline := A_TickCount + 5000
             continue
         }
-        if ClickTemplate(Asset("next_quest.png")) {
+        if ClickTemplate(ASSET_DIR "\next_quest.png.png") {
             Log("Quest flow: next quest")
             nextQuestGraceDeadline := 0
             continue
@@ -61,23 +59,15 @@ ClickPrepareForQuestFallback() {
     if (ww <= 0 || wh <= 0)
         return false
 
-    ; Based on the supplied full-screen screenshot, the center of the
-    ; Prepare for Quest button is about 68.8% across and 90.8% down the
-    ; complete BBS window. Use a small search area around that point so
-    ; normal window movement does not matter.
     cx := wx + Round(ww * 0.688)
     cy := wy + Round(wh * 0.908)
 
-    ; PixelGetColor in AutoHotkey v2 returns the color; it does not take an
-    ; output variable. Keep the RGB mode explicit for the color test.
     try {
         color := PixelGetColor(cx, cy, "RGB")
         r := (color >> 16) & 0xFF
         g := (color >> 8) & 0xFF
         b := color & 0xFF
 
-        ; Reject obvious non-blue areas. The actual click remains at the
-        ; known button center from the screenshot.
         if (b < 100 || b < r * 1.15 || b < g * 1.05)
             return false
 
