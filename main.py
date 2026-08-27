@@ -1,6 +1,5 @@
 import os
 import time
-import threading
 import cv2
 import numpy as np
 import pyautogui
@@ -11,11 +10,11 @@ from mss import mss
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSET_DIR = os.path.join(BASE_DIR, "assets", "icons")
 WINDOW_TITLE = "Bleach: Brave Souls"
-THRESHOLD = 0.85
 POLL = 0.35
-STOP = threading.Event()
+STOP = False
 
-# No ordered state machine: every known UI image is checked continuously.
+# Next Quest is allowed to have a lower threshold because its UI can be
+# partially animated/overlaid at the end of a quest.
 WATCH = [
     ("prepare_for_quest.png", 0.85),
     ("start_quest.png", 0.85),
@@ -25,7 +24,8 @@ WATCH = [
     ("cancel.png", 0.80),
     ("skin.png", 0.80),
     ("quest_clear.png", 0.80),
-    ("next_quest.png.png", 0.80),
+    ("next_quest.png.png", 0.65),
+    ("next_quest.png", 0.65),
     ("close.png", 0.80),
 ]
 
@@ -40,8 +40,6 @@ def get_window():
 
 
 def screenshot(win, sct):
-    if not win:
-        return None
     try:
         shot = sct.grab({"left": int(win.left), "top": int(win.top), "width": int(win.width), "height": int(win.height)})
         return cv2.cvtColor(np.array(shot), cv2.COLOR_BGRA2BGR)
@@ -83,14 +81,16 @@ def click_hit(win, hit, name):
 
 
 def run():
-    log("Python farmer started - continuous detection mode")
-    log("Every asset is checked continuously; no required order")
+    log("Continuous detection mode")
     last_click = {}
     with mss() as sct:
-        while not STOP.is_set():
+        while not STOP:
             win = get_window()
+            if not win:
+                time.sleep(POLL)
+                continue
             img = screenshot(win, sct)
-            if not win or img is None:
+            if img is None:
                 time.sleep(POLL)
                 continue
             now = time.time()
@@ -104,20 +104,17 @@ def run():
             time.sleep(POLL)
 
 
+def stop():
+    global STOP
+    STOP = True
+    log("Stopped")
+
+
 def main():
     log("F6 = start | F9 = stop")
-    keyboard.add_hotkey("f9", STOP.set)
-    started = False
-
-    def start():
-        nonlocal started
-        if started or STOP.is_set():
-            return
-        started = True
-        run()
-
-    keyboard.add_hotkey("f6", start)
-    keyboard.wait("f9")
+    keyboard.add_hotkey("f9", stop)
+    keyboard.wait("f6")
+    run()
 
 
 if __name__ == "__main__":
