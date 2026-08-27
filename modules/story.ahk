@@ -7,15 +7,22 @@
 RunStory() {
     Log("Story: starting")
 
-    ; First try to locate the Story entry/available quest marker.
-    if !WaitForTemplate(Asset("new"), 10000) {
-        Log("Story: no available Story quest detected")
+    ; The NEW marker is the first Story state. Use tolerant image matching so
+    ; Windows/client scaling or small visual differences do not cause a false
+    ; "no quest" result.
+    if !WaitForTemplateMultiScale(Asset("new"), 10000) {
+        Log("Story: NEW marker not found with normal/tolerant matching")
         return false
     }
 
-    if !ClickTemplate(Asset("new")) {
-        Log("Story: failed to open quest")
-        return false
+    Log("Story: NEW marker detected")
+    if !ClickTemplate(Asset("new"), 60) {
+        ; Retry using the exact default variation if the first click search
+        ; happened to miss the marker after the UI moved.
+        if !ClickTemplate(Asset("new"), IMAGE_VARIATION) {
+            Log("Story: failed to open quest")
+            return false
+        }
     }
 
     Sleep 1000
