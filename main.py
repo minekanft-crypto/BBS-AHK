@@ -54,15 +54,15 @@ def run():
                 hit=match("quest_clear.png",img,.80)
                 if hit and click_point(win,win.left+win.width*.50,win.top+win.height*.50,"quest_clear trigger"):
                     quest_clear_cooldown=now+1.;normal_clicked=True
-            # Story button is independent from normal.png. Use its full template as the click target.
+            # normal_story is checked independently. Its own template contains NORMAL + 0%.
             if now>=story_cooldown:
-                hit=match("normal_story.png",img,.65)
+                hit=match("normal_story.png",img,.50)
                 if hit:
                     x,y,w,h,_=hit
-                    # The supplied normal_story template includes NORMAL and 0%; click in its lower portion.
-                    if click_point(win,win.left+x+w*.50,win.top+y+h*.78,"normal_story 0%"):
-                        story_cooldown=now+1.;normal_clicked=True;time.sleep(.1)
-            # normal.png is only a guard for next_quest.
+                    # Click near the bottom of the matched story card (the 0% area).
+                    if click_point(win,win.left+x+w*0.50,win.top+y+h*0.90,"normal_story 0%"):
+                        story_cooldown=now+1.0;normal_clicked=True;time.sleep(.1)
+            # normal.png is ONLY a guard against the false next_quest match.
             normal_hit=match("normal.png",img,.80)
             for name,threshold in WATCH:
                 if now-last_click.get(name,0)<.8:continue
