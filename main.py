@@ -12,7 +12,7 @@ WINDOW_TITLE="Bleach: Brave Souls"
 POLL=.35
 BACK_INTERVAL=40.0
 STOP=False
-WATCH=[("prepare_for_quest.png",.85),("start_quest.png",.85),("ok.png",.80),("skip.png",.80),("tap_screen.png",.80),("cancel.png",.80),("skin.png",.80),("next_quest.png",.65),("close.png",.80)]
+WATCH=[("prepare_for_quest.png",.85),("start_quest.png",.85),("ok.png",.80),("skip.png",.80),("tap_screen.png",.80),("cancel.png",.80),("skin.png",.80),("next_quest.png",.65),("close.png",.80),("normal_story.png",.80)]
 def log(msg): print(f"[BBS] {msg}",flush=True)
 def get_window():
     wins=[w for w in gw.getWindowsWithTitle(WINDOW_TITLE) if w.width>0 and w.height>0]; return max(wins,key=lambda w:w.width*w.height) if wins else None
@@ -50,12 +50,10 @@ def run():
             img=screenshot(win,sct)
             if img is None:time.sleep(POLL);continue
             now=time.time();normal_clicked=False
-            # quest_clear.png is the only clear trigger; click inside the game when detected.
             if now>=quest_clear_cooldown:
                 hit=match("quest_clear.png",img,.80)
-                if hit:
-                    if click_point(win,win.left+win.width*.50,win.top+win.height*.50,"quest_clear trigger"):
-                        quest_clear_cooldown=now+1.0;normal_clicked=True
+                if hit and click_point(win,win.left+win.width*.50,win.top+win.height*.50,"quest_clear trigger"):
+                    quest_clear_cooldown=now+1.;normal_clicked=True
             for name,threshold in WATCH:
                 if now-last_click.get(name,0)<.8:continue
                 hit=match(name,img,threshold)
