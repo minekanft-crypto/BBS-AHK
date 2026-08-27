@@ -38,14 +38,13 @@ RunQuestFlow() {
             nextQuestGraceDeadline := 0
             continue
         }
-        ; Only close after the grace period. This prevents the close button from
-        ; winning the race while the Next Quest button is still appearing.
-        if ClickTemplate(Asset("close")) {
-            if nextQuestGraceDeadline = 0 || A_TickCount >= nextQuestGraceDeadline {
+        ; After a quest clear, don't close immediately: Next Quest may still be
+        ; appearing. Once the grace period expires, close normally if needed.
+        if (nextQuestGraceDeadline = 0 || A_TickCount >= nextQuestGraceDeadline) {
+            if ClickTemplate(Asset("close")) {
                 Log("Quest flow: closed")
                 return true
             }
-            continue
         }
         Sleep POLL_DELAY_MS
     }
