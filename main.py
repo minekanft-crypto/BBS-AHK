@@ -54,15 +54,14 @@ def run():
                 hit=match("quest_clear.png",img,.80)
                 if hit and click_point(win,win.left+win.width*.50,win.top+win.height*.50,"quest_clear trigger"):
                     quest_clear_cooldown=now+1.;normal_clicked=True
-            # normal_story is checked independently. Its own template contains NORMAL + 0%.
+            # new_story.png is continuously monitored independently of normal.png.
             if now>=story_cooldown:
-                hit=match("normal_story.png",img,.50)
+                hit=match("new_story.png",img,.50)
                 if hit:
                     x,y,w,h,_=hit
-                    # Click near the bottom of the matched story card (the 0% area).
-                    if click_point(win,win.left+x+w*0.50,win.top+y+h*0.90,"normal_story 0%"):
-                        story_cooldown=now+1.0;normal_clicked=True;time.sleep(.1)
-            # normal.png is ONLY a guard against the false next_quest match.
+                    if click_point(win,win.left+x+w*.50,win.top+y+h*.90,"new_story 0%"):
+                        story_cooldown=now+1.;normal_clicked=True;time.sleep(.1)
+            # normal.png only guards next_quest; it never blocks new_story.
             normal_hit=match("normal.png",img,.80)
             for name,threshold in WATCH:
                 if now-last_click.get(name,0)<.8:continue
