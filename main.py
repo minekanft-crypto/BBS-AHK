@@ -7,80 +7,74 @@ import pygetwindow as gw
 import keyboard
 from mss import mss
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ASSET_DIR = os.path.join(BASE_DIR, "assets", "icons")
-WINDOW_TITLE = "Bleach: Brave Souls"
-POLL = 0.35
-BACK_INTERVAL = 40.0
-STOP = False
-WATCH = [("prepare_for_quest.png",0.85),("start_quest.png",0.85),("ok.png",0.80),("skip.png",0.80),("tap_screen.png",0.80),("cancel.png",0.80),("skin.png",0.80),("clear.png",0.80),("next_quest.png",0.65),("close.png",0.80)]
-
-def log(msg): print(f"[BBS] {msg}", flush=True)
+BASE_DIR=os.path.dirname(os.path.abspath(__file__))
+ASSET_DIR=os.path.join(BASE_DIR,"assets","icons")
+WINDOW_TITLE="Bleach: Brave Souls"
+POLL=.35
+BACK_INTERVAL=40.0
+STOP=False
+WATCH=[("prepare_for_quest.png",.85),("start_quest.png",.85),("ok.png",.80),("skip.png",.80),("tap_screen.png",.80),("cancel.png",.80),("skin.png",.80),("clear.png",.80),("next_quest.png",.65),("close.png",.80)]
+def log(msg): print(f"[BBS] {msg}",flush=True)
 def get_window():
     wins=[w for w in gw.getWindowsWithTitle(WINDOW_TITLE) if w.width>0 and w.height>0]
     return max(wins,key=lambda w:w.width*w.height) if wins else None
-
 def screenshot(win,sct):
     try:
         shot=sct.grab({"left":int(win.left),"top":int(win.top),"width":int(win.width),"height":int(win.height)})
         return cv2.cvtColor(np.array(shot),cv2.COLOR_BGRA2BGR)
-    except Exception: return None
-
+    except Exception:return None
 def match(name,img,threshold):
     path=os.path.join(ASSET_DIR,name)
-    if img is None or not os.path.exists(path): return None
+    if img is None or not os.path.exists(path):return None
     template=cv2.imread(path,cv2.IMREAD_COLOR)
-    if template is None or img.shape[0]<template.shape[0] or img.shape[1]<template.shape[1]: return None
+    if template is None or img.shape[0]<template.shape[0] or img.shape[1]<template.shape[1]:return None
     result=cv2.matchTemplate(img,template,cv2.TM_CCOEFF_NORMED)
     _,value,_,loc=cv2.minMaxLoc(result)
     if value<threshold:return None
-    h,w=template.shape[:2]
-    return loc[0],loc[1],w,h,value
-
+    h,w=template.shape[:2];return loc[0],loc[1],w,h,value
 def click_point(win,cx,cy,name):
-    if not(win.left<=cx<win.left+win.width and win.top<=cy<win.top+win.height): return False
+    if not(win.left<=cx<win.left+win.width and win.top<=cy<win.top+win.height):return False
     try:
-        if not win.isActive: win.activate(); time.sleep(.1)
-    except Exception: pass
-    pyautogui.click(int(cx),int(cy)); log(f"Clicked {name} at ({int(cx)}, {int(cy)})"); return True
-
+        if not win.isActive:win.activate();time.sleep(.1)
+    except Exception:pass
+    pyautogui.click(int(cx),int(cy));log(f"Clicked {name} at ({int(cx)}, {int(cy)})");return True
 def click_hit(win,hit,name):
-    x,y,w,h,_=hit; return click_point(win,win.left+x+w/2,win.top+y+h/2,name)
-
+    x,y,w,h,_=hit;return click_point(win,win.left+x+w/2,win.top+y+h/2,name)
 def find_non_clear_number_click(win,img):
     hit=match("non_clear.png",img,.82)
     if not hit:return False
     tx,ty,tw,th,confidence=hit
-    # New non_clear asset: click in one of the visible red-outfit recesses,
-    # i.e. the number/quest target area below the yellow marker.
-    click_x=tx+tw*.50
-    click_y=ty+th*.61
+    click_x=tx+tw*.50;click_y=ty+th*.61
     return click_point(win,win.left+click_x,win.top+click_y,f"non_clear target ({confidence:.3f})")
-
 def run():
     log("Continuous detection mode")
-    last_click={}; last_back_check=0.; non_clear_cooldown=0.
+    last_click={}
+    # Start the 40-second Back timer immediately, but Back can never be the first click.
+    last_back_check=time.time()
+    non_clear_cooldown=0.
     with mss() as sct:
         while not STOP:
             win=get_window()
-            if not win: time.sleep(POLL); continue
+            if not win:time.sleep(POLL);continue
             img=screenshot(win,sct)
-            if img is None: time.sleep(POLL); continue
-            now=time.time(); normal_clicked=False
+            if img is None:time.sleep(POLL);continue
+            now=time.time();normal_clicked=False
             for name,threshold in WATCH:
-                if now-last_click.get(name,0)<.8: continue
+                if now-last_click.get(name,0)<.8:continue
                 hit=match(name,img,threshold)
-                if hit and click_hit(win,hit,name): last_click[name]=now; normal_clicked=True; time.sleep(.1)
+                if hit and click_hit(win,hit,name):
+                    last_click[name]=now;normal_clicked=True;time.sleep(.1)
             if now>=non_clear_cooldown and find_non_clear_number_click(win,img):
-                non_clear_cooldown=now+3.; normal_clicked=True
-            if normal_clicked: last_back_check=now
+                non_clear_cooldown=now+3.;normal_clicked=True
+            # Every successful non-Back click resets the 40-second Back timer.
+            if normal_clicked:last_back_check=now
             elif now-last_back_check>=BACK_INTERVAL:
-                last_back_check=now; hit=match("back.png",img,.80)
-                if hit: click_hit(win,hit,"back.png")
+                last_back_check=now
+                hit=match("back.png",img,.80)
+                if hit:click_hit(win,hit,"back.png")
             time.sleep(POLL)
-
 def stop():
-    global STOP; STOP=True; log("Stopped")
+    global STOP;STOP=True;log("Stopped")
 def main():
-    log("F6 = start | F9 = stop"); keyboard.add_hotkey("f9",stop); keyboard.wait("f6"); run()
-if __name__=="__main__": main()
+    log("F6 = start | F9 = stop");keyboard.add_hotkey("f9",stop);keyboard.wait("f6");run()
+if __name__=="__main__":main()
