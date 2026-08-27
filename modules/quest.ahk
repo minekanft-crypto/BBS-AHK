@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
-; Common single-player quest/story state machine.
-; This intentionally contains only normal Story/Sub Story flow.
+; Common single-player Story quest state machine.
+; This module intentionally contains no other BBS game modes.
 
 RunQuestFlow() {
     Log("Quest flow: starting")
