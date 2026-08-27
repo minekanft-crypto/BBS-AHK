@@ -16,9 +16,8 @@ RunQuestFlow() {
         if ClickTemplate(Asset("skip"))
             continue
 
-        ; The current Prepare for Quest template is from a different UI scale.
-        ; Try ImageSearch first, then use the button's normalized position in
-        ; the BBS window so 2K/window scaling does not break the first step.
+        ; Try the normal template first, then the scaled fallback for the
+        ; 2K desktop/window layout shown by the user.
         if ClickTemplate(Asset("prepare_for_quest"))
             continue
         if ClickPrepareForQuestFallback()
@@ -62,25 +61,29 @@ ClickPrepareForQuestFallback() {
     if (ww <= 0 || wh <= 0)
         return false
 
-    ; On the Story quest-detail screen, Prepare for Quest is approximately
-    ; centered at 53.2% of the window width and 75.1% of its height.
-    ; Only use this fallback while the expected blue button area is present.
-    px := wx + Round(ww * 0.532)
-    py := wy + Round(wh * 0.751)
+    ; Based on the supplied full-screen screenshot, the center of the
+    ; Prepare for Quest button is about 68.8% across and 90.8% down the
+    ; complete BBS window. Use a small search area around that point so
+    ; normal window movement does not matter.
+    cx := wx + Round(ww * 0.688)
+    cy := wy + Round(wh * 0.908)
 
+    ; PixelGetColor in AutoHotkey v2 returns the color; it does not take an
+    ; output variable. Keep the RGB mode explicit for the color test.
     try {
-        PixelGetColor &color, px, py, "RGB"
+        color := PixelGetColor(cx, cy, "RGB")
         r := (color >> 16) & 0xFF
         g := (color >> 8) & 0xFF
         b := color & 0xFF
 
-        ; BBS Prepare for Quest button is blue; reject obvious non-button areas.
+        ; Reject obvious non-blue areas. The actual click remains at the
+        ; known button center from the screenshot.
         if (b < 100 || b < r * 1.15 || b < g * 1.05)
             return false
 
         WinActivate BBS_WINDOW_TITLE
         Sleep ACTION_DELAY_MS
-        Click px, py
+        Click cx, cy
         Sleep CLICK_COOLDOWN_MS
         Log("Quest flow: Prepare for Quest (scaled fallback)")
         return true
