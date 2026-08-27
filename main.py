@@ -27,7 +27,7 @@ def match(name,img,threshold):
     if template is None or img.shape[0]<template.shape[0] or img.shape[1]<template.shape[1]:return None
     result=cv2.matchTemplate(img,template,cv2.TM_CCOEFF_NORMED); _,value,_,loc=cv2.minMaxLoc(result)
     if value<threshold:return None
-    h,w=template.shape[:2];return loc[0],loc[1],w,h,value
+    h,w=template.shape[:2]; return loc[0],loc[1],w,h,value
 def click_point(win,cx,cy,name):
     if not(win.left<=cx<win.left+win.width and win.top<=cy<win.top+win.height):return False
     try:
@@ -35,7 +35,7 @@ def click_point(win,cx,cy,name):
     except Exception:pass
     pyautogui.click(int(cx),int(cy));log(f"Clicked {name} at ({int(cx)}, {int(cy)})");return True
 def click_hit(win,hit,name):
-    x,y,w,h,_=hit;return click_point(win,win.left+x+w/2,win.top+y+h/2,name)
+    x,y,w,h,_=hit; return click_point(win,win.left+x+w/2,win.top+y+h/2,name)
 def find_non_clear_number_click(win,img):
     hit=match("non_clear.png",img,.82)
     if not hit:return False
@@ -54,7 +54,11 @@ def run():
                 hit=match("quest_clear.png",img,.80)
                 if hit and click_point(win,win.left+win.width*.50,win.top+win.height*.50,"quest_clear trigger"):
                     quest_clear_cooldown=now+1.;normal_clicked=True
+            # NORMAL has priority over next_quest: if normal.png is visible, next_quest is ignored.
+            normal_hit=match("normal.png",img,.80)
             for name,threshold in WATCH:
+                if name=="next_quest.png" and normal_hit:
+                    continue
                 if now-last_click.get(name,0)<.8:continue
                 hit=match(name,img,threshold)
                 if hit and click_hit(win,hit,name):last_click[name]=now;normal_clicked=True;time.sleep(.1)
