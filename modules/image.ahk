@@ -26,6 +26,21 @@ FindTemplate(templatePath, &x := 0, &y := 0, variation := IMAGE_VARIATION) {
     return false
 }
 
+; Story assets can be affected by Windows/client scaling. Try the normal
+; template first, then progressively more tolerant ImageSearch variations.
+FindTemplateMultiScale(templatePath, &x := 0, &y := 0) {
+    if FindTemplate(templatePath, &x, &y, IMAGE_VARIATION)
+        return true
+
+    for variation in [45, 60, 75] {
+        if FindTemplate(templatePath, &x, &y, variation) {
+            Log("ImageSearch: found template with variation " variation)
+            return true
+        }
+    }
+    return false
+}
+
 ClickTemplate(templatePath, variation := IMAGE_VARIATION, doubleClick := false) {
     x := 0, y := 0
     if !FindTemplate(templatePath, &x, &y, variation)
@@ -42,6 +57,16 @@ WaitForTemplate(templatePath, timeoutMs := 10000, variation := IMAGE_VARIATION) 
     deadline := A_TickCount + timeoutMs
     while A_TickCount < deadline {
         if FindTemplate(templatePath, &x, &y, variation)
+            return true
+        Sleep POLL_DELAY_MS
+    }
+    return false
+}
+
+WaitForTemplateMultiScale(templatePath, timeoutMs := 10000) {
+    deadline := A_TickCount + timeoutMs
+    while A_TickCount < deadline {
+        if FindTemplateMultiScale(templatePath, &x, &y)
             return true
         Sleep POLL_DELAY_MS
     }
