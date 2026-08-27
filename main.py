@@ -13,8 +13,7 @@ WINDOW_TITLE = "Bleach: Brave Souls"
 POLL = 0.35
 STOP = False
 
-# Next Quest is allowed to have a lower threshold because its UI can be
-# partially animated/overlaid at the end of a quest.
+# Every image is checked continuously; there is no required order.
 WATCH = [
     ("prepare_for_quest.png", 0.85),
     ("start_quest.png", 0.85),
@@ -22,6 +21,7 @@ WATCH = [
     ("skip.png", 0.80),
     ("tap_screen.png", 0.80),
     ("cancel.png", 0.80),
+    ("back.png", 0.80),
     ("skin.png", 0.80),
     ("quest_clear.png", 0.80),
     ("next_quest.png.png", 0.65),
