@@ -51,11 +51,11 @@ def find_non_clear_number_click(win,img):
     hit=match("non_clear.png",img,.82)
     if not hit:return False
     tx,ty,tw,th,confidence=hit
-    # 246x168 template: move the click upward from the previous 82% point.
-    # The number is directly below the yellow hexagon, around 70% of the block height.
+    # New non_clear asset: click in one of the visible red-outfit recesses,
+    # i.e. the number/quest target area below the yellow marker.
     click_x=tx+tw*.50
-    click_y=ty+th*.70
-    return click_point(win,win.left+click_x,win.top+click_y,f"non_clear number ({confidence:.3f})")
+    click_y=ty+th*.61
+    return click_point(win,win.left+click_x,win.top+click_y,f"non_clear target ({confidence:.3f})")
 
 def run():
     log("Continuous detection mode")
