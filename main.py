@@ -42,7 +42,7 @@ def find_non_clear_number_click(win,img):
     tx,ty,tw,th,confidence=hit; return click_point(win,win.left+tx+tw*.50,win.top+ty+th*.61,f"non_clear target ({confidence:.3f})")
 def run():
     log("Continuous detection mode")
-    last_click={}; last_back_check=time.time(); non_clear_cooldown=0.; quest_clear_cooldown=0.
+    last_click={}; last_back_check=time.time(); non_clear_cooldown=0.; quest_clear_cooldown=0.; story_cooldown=0.
     with mss() as sct:
         while not STOP:
             win=get_window()
@@ -54,14 +54,14 @@ def run():
                 hit=match("quest_clear.png",img,.80)
                 if hit and click_point(win,win.left+win.width*.50,win.top+win.height*.50,"quest_clear trigger"):
                     quest_clear_cooldown=now+1.;normal_clicked=True
-            # normal_story is independent from normal.png and is checked first.
-            story_hit=None
-            if now-last_click.get("normal_story.png",0)>=.8:
-                story_hit=match("normal_story.png",img,.65)
-                if story_hit:
-                    x,y,w,h,_=story_hit
+            # Story button is independent from normal.png. Use its full template as the click target.
+            if now>=story_cooldown:
+                hit=match("normal_story.png",img,.65)
+                if hit:
+                    x,y,w,h,_=hit
+                    # The supplied normal_story template includes NORMAL and 0%; click in its lower portion.
                     if click_point(win,win.left+x+w*.50,win.top+y+h*.78,"normal_story 0%"):
-                        last_click["normal_story.png"]=now;normal_clicked=True;time.sleep(.1)
+                        story_cooldown=now+1.;normal_clicked=True;time.sleep(.1)
             # normal.png is only a guard for next_quest.
             normal_hit=match("normal.png",img,.80)
             for name,threshold in WATCH:
