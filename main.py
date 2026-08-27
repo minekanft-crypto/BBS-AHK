@@ -12,7 +12,7 @@ WINDOW_TITLE="Bleach: Brave Souls"
 POLL=.35
 BACK_INTERVAL=40.0
 STOP=False
-WATCH=[("prepare_for_quest.png",.85),("start_quest.png",.85),("ok.png",.80),("skip.png",.80),("tap_screen.png",.80),("cancel.png",.80),("skin.png",.80),("next_quest.png",.65),("close.png",.80),("normal_story.png",.65)]
+WATCH=[("prepare_for_quest.png",.85),("start_quest.png",.85),("ok.png",.80),("skip.png",.80),("tap_screen.png",.80),("cancel.png",.80),("skin.png",.80),("next_quest.png",.65),("close.png",.80)]
 def log(msg): print(f"[BBS] {msg}",flush=True)
 def get_window():
     wins=[w for w in gw.getWindowsWithTitle(WINDOW_TITLE) if w.width>0 and w.height>0]; return max(wins,key=lambda w:w.width*w.height) if wins else None
@@ -54,18 +54,19 @@ def run():
                 hit=match("quest_clear.png",img,.80)
                 if hit and click_point(win,win.left+win.width*.50,win.top+win.height*.50,"quest_clear trigger"):
                     quest_clear_cooldown=now+1.;normal_clicked=True
-            # normal.png only protects next_quest. It must not block normal_story.
-            normal_hit=match("normal.png",img,.80)
+            # normal_story is independent from normal.png and is checked first.
+            story_hit=None
             if now-last_click.get("normal_story.png",0)>=.8:
-                hit=match("normal_story.png",img,.65)
-                if hit:
-                    x,y,w,h,_=hit
+                story_hit=match("normal_story.png",img,.65)
+                if story_hit:
+                    x,y,w,h,_=story_hit
                     if click_point(win,win.left+x+w*.50,win.top+y+h*.78,"normal_story 0%"):
                         last_click["normal_story.png"]=now;normal_clicked=True;time.sleep(.1)
+            # normal.png is only a guard for next_quest.
+            normal_hit=match("normal.png",img,.80)
             for name,threshold in WATCH:
-                if name=="normal_story.png":continue
-                if name=="next_quest.png" and normal_hit:continue
                 if now-last_click.get(name,0)<.8:continue
+                if name=="next_quest.png" and normal_hit:continue
                 hit=match(name,img,threshold)
                 if hit and click_hit(win,hit,name):last_click[name]=now;normal_clicked=True;time.sleep(.1)
             if now>=non_clear_cooldown and find_non_clear_number_click(win,img):
