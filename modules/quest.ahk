@@ -6,6 +6,7 @@
 RunQuestFlow() {
     Log("Quest flow: starting")
     deadline := A_TickCount + QUEST_TIMEOUT_MS
+    nextQuestGraceDeadline := 0
 
     while A_TickCount < deadline {
         if ClickTemplate(Asset("new_2"))
@@ -25,11 +26,26 @@ RunQuestFlow() {
         }
         if ClickTemplate(Asset("quest_clear")) {
             Log("Quest flow: quest clear")
+            ; Give the post-clear screen time to render its Next Quest button.
+            nextQuestGraceDeadline := A_TickCount + 5000
             continue
         }
+        ; Continue directly into the next Story quest when the button is present.
+        ; The repository asset is named next_quest.png.png, so the extension is
+        ; intentionally included here because Asset() appends .png.
+        if ClickTemplate(Asset("next_quest.png")) {
+            Log("Quest flow: next quest")
+            nextQuestGraceDeadline := 0
+            continue
+        }
+        ; Only close after the grace period. This prevents the close button from
+        ; winning the race while the Next Quest button is still appearing.
         if ClickTemplate(Asset("close")) {
-            Log("Quest flow: closed")
-            return true
+            if nextQuestGraceDeadline = 0 || A_TickCount >= nextQuestGraceDeadline {
+                Log("Quest flow: closed")
+                return true
+            }
+            continue
         }
         Sleep POLL_DELAY_MS
     }
